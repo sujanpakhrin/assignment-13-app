@@ -1,0 +1,17 @@
+# Python
+backend/.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Environment files
+.env
+.env.*
+
+# Docker
+postgres_data/
+
+# OS/editor
+.DS_Store
+.vscode/
+.idea/

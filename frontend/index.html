@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assignment 13</title>
+</head>
+
+<body>
+    <h1>Assignment 13 Task Board</h1>
+
+    <form id="task-form">
+        <input
+            id="title"
+            type="text"
+            placeholder="Enter a task"
+            required
+        >
+        <button type="submit">Add Task</button>
+    </form>
+
+    <h2>Tasks</h2>
+    <ul id="tasks"></ul>
+
+    <script>
+        async function loadTasks() {
+            const response = await fetch("/api/tasks");
+            const tasks = await response.json();
+
+            const list = document.getElementById("tasks");
+            list.innerHTML = "";
+
+            for (const task of tasks) {
+                const item = document.createElement("li");
+                item.textContent = task.title;
+                list.appendChild(item);
+            }
+        }
+
+        document
+            .getElementById("task-form")
+            .addEventListener("submit", async (event) => {
+                event.preventDefault();
+
+                const input = document.getElementById("title");
+
+                await fetch("/api/tasks", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        title: input.value
+                    })
+                });
+
+                input.value = "";
+                await loadTasks();
+            });
+
+        loadTasks();
+    </script>
+</body>
+</html>
