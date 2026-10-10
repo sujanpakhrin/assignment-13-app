@@ -92,7 +92,7 @@ jobs:
         env:
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          python - <<'PY'
+          python3 - <<'PY'
           import os
           from pathlib import Path
 
