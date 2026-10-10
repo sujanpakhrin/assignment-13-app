@@ -1,3 +1,4 @@
+
 name: Assignment 13 CI
 
 on:
@@ -69,3 +70,71 @@ jobs:
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/assignment13-backend:latest
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/assignment13-backend:${{ github.sha }}
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/assignment13-backend:${{ github.run_number }}
+
+      # Update GitOps configuration only for main-branch runs.
+  deploy:
+    name: Update Helm Chart and deploy
+    runs-on: self-hosted
+    needs: ci
+
+    steps:
+      - name: Checkout Helm repository
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        uses: actions/checkout@v7
+        with:
+          repository: sujanpakhrin/helm
+          ref: main
+          path: helm-repo
+          token: ${{ secrets.HELM_REPO_TOKEN }}
+
+      - name: Update Helm image tags
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          path = Path("helm-repo/three-tier-chart/values.yaml")
+          lines = path.read_text().splitlines()
+          section = None
+          updated = set()
+
+          for i, line in enumerate(lines):
+              if line in ("frontend:", "backend:"):
+                  section = line[:-1]
+              elif line and not line.startswith(" "):
+                  section = None
+
+              if (
+                  section in ("frontend", "backend")
+                  and line.strip().startswith("tag:")
+              ):
+                  lines[i] = f'    tag: "{os.environ["IMAGE_TAG"]}"'
+                  updated.add(section)
+
+          if updated != {"frontend", "backend"}:
+              raise SystemExit(
+                  f"Expected image tags for frontend and backend; found {updated}"
+              )
+
+          path.write_text("\n".join(lines) + "\n")
+          PY
+
+      - name: Commit and push Helm update
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        working-directory: helm-repo
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add three-tier-chart/values.yaml
+
+          if git diff --cached --quiet; then
+            echo "No Helm image tag changes to commit."
+            exit 0
+          fi
+
+          git commit -m "Deploy application ${GITHUB_SHA}"
+          git push origin HEAD:main
